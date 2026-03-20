@@ -70,20 +70,36 @@ const firebaseConfig={apiKey:"AIzaSyC4FVokHFRbbTc4rBifNyt5bvOX2CuzkWw",authDomai
 firebase.initializeApp(firebaseConfig);
 const db=firebase.firestore();
 
- <div class="card">
-  <h2>⚙️ Administrar Destinos</h2>
+// 🔥 ESTA ES LA PARTE QUE TE DI (VA AQUÍ)
+document.addEventListener("DOMContentLoaded", function(){
 
-  <input type="text" id="destinoNombre" placeholder="Nombre del destino">
-  <input type="number" id="destinoPrecio" placeholder="Precio">
-  <input type="text" id="destinoImagen" placeholder="URL de imagen">
+  const btn = document.getElementById("btnGuardar");
 
-  <button class="btn" onclick="guardarDestino()">💾 Guardar / Actualizar</button>
+  if(!btn){
+    console.error("❌ No existe el botón");
+    return;
+  }
 
-  <hr>
+  btn.addEventListener("click", function(){
+    console.log("CLICK DETECTADO ✅");
+    guardarDestino();
+  });
 
-  <h3>📍 Lista de destinos</h3>
-  <div id="listaDestinos"></div>
-</div> 
+});
+
+
+// 🔥 FUNCIÓN
+function guardarDestino(){
+  alert("FUNCION OK ✅");
+
+  const nombre = document.getElementById("destinoNombre").value;
+  const precio = document.getElementById("destinoPrecio").value;
+  const imagen = document.getElementById("destinoImagen").value;
+
+  console.log(nombre, precio, imagen);
+}
+
+ 
 
   
 
