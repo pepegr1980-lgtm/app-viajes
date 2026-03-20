@@ -128,7 +128,14 @@ function exportarExcel(){
  });
  XLSX.writeFile(wb,"reservas.xlsx");
 }
-function loginAdmin(){const pass=prompt("Contraseña admin");if(pass==="1234")document.getElementById('admin.html').style.display='block';else alert("Acceso denegado");}
+function loginAdmin(){
+  const pass = prompt("Contraseña admin");
+  if(pass === "1234"){
+    document.getElementById('adminPanel').style.display = 'block';
+  } else {
+    alert("Acceso denegado");
+  }
+}
 </script>
 </body>
 </html>
