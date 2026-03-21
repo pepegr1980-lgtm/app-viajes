@@ -160,5 +160,21 @@ function loginAdmin(){
   }
 }
 </script>
+  <script>
+document.addEventListener("DOMContentLoaded", function(){
+
+  const btn = document.getElementById("btnGuardar");
+
+  if(!btn){
+    alert("❌ No existe el botón btnGuardar");
+    return;
+  }
+
+  btn.addEventListener("click", function(){
+    alert("🔥 CLICK FUNCIONANDO");
+  });
+
+});
+</script>
 </body>
 </html>
