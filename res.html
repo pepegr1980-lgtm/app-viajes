@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Nueva Aventura Monterrey</title>
+
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js"></script>
+
+<style>
+body {
+  font-family: Arial, sans-serif;
+  background-color: #f5f5f5;
+  margin: 0;
+}
+
+/* HEADER */
+header {
+  background-color: #007BFF;
+  padding: 15px;
+  text-align: center;
+}
+header button {
+  padding: 10px 20px;
+  font-size: 18px;
+  cursor: pointer;
+  border-radius: 6px;
+  border: none;
+  background-color: white;
+  color: #007BFF;
+  font-weight: bold;
+}
+
+/* DESTINOS */
+h1 {
+  text-align: center;
+  margin-top: 20px;
+}
+.card {
+  border: 1px solid #ccc;
+  padding: 15px;
+  margin: 10px auto;
+  width: 300px;
+  background-color: #fff;
+  border-radius: 10px;
+  box-shadow: 2px 2px 10px rgba(0,0,0,0.1);
+  text-align: center;
+}
+.card img {
+  max-width: 100%;
+  border-radius: 10px;
+  margin-bottom: 10px;
+}
+button {
+  margin-top: 10px;
+  padding: 8px 12px;
+  background-color: #007BFF;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+/* MODAL */
+.modal {
+  display: none; 
+  position: fixed; 
+  z-index: 10; 
+  left: 0;
+  top: 0;
+  width: 100%; 
+  height: 100%; 
+  background-color: rgba(0,0,0,0.5);
+}
+.modal-content {
+  background-color: #fff;
+  margin: 10% auto; 
+  padding: 20px;
+  border-radius: 10px;
+  width: 300px;
+  position: relative;
+}
+.close {
+  position: absolute;
+  top: 10px;
+  right: 15px;
+  font-size: 25px;
+  cursor: pointer;
+}
+input {
+  width: 100%;
+  padding: 8px;
+  margin: 6px 0;
+}
+
+/* TOAST */
+#toast {
+  visibility: hidden;
+  min-width: 250px;
+  background-color: #28a745;
+  color: white;
+  text-align: center;
+  border-radius: 8px;
+  padding: 16px;
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 100;
+  opacity: 0;
+  transition: opacity 0.5s;
+}
+</style>
+</head>
+
+<body>
+
+<!-- HEADER -->
+<header>
+  <button onclick="irADestinos()">Reservas</button>
+</header>
+
+<h1>Destinos Disponibles</h1>
+<div id="lista"></div>
+
+<!-- MODAL -->
+<div id="modalReserva" class="modal">
+  <div class="modal-content">
+    <span class="close">&times;</span>
+    <h3>Reserva tu viaje</h3>
+    <form id="formReserva">
+      <input type="text" id="nombre" placeholder="Nombre completo" required>
+      <input type="email" id="correo" placeholder="Correo" required>
+      <input type="tel" id="telefono" placeholder="Teléfono" required>
+      <input type="hidden" id="destinoSeleccionado">
+      <button type="submit">Confirmar Reserva</button>
+    </form>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div id="toast"></div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getFirestore, collection, onSnapshot, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyC4FVokHFRbbTc4rBifNyt5bvOX2CuzkWw",
+  authDomain: "calificaciones-9f753.firebaseapp.com",
+  projectId: "calificaciones-9f753"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+const lista = document.getElementById("lista");
+
+// Imagen dinámica
+function obtenerImagenDestino(destino) {
+  return `https://source.unsplash.com/400x300/?${encodeURIComponent(destino)}`;
+}
+
+// Scroll a destinos
+window.irADestinos = function() {
+  document.getElementById("lista").scrollIntoView({ behavior: "smooth" });
+}
+
+// Toast
+window.mostrarToast = function(mensaje, color="#28a745") {
+  const toast = document.getElementById("toast");
+  toast.textContent = mensaje;
+  toast.style.backgroundColor = color;
+  toast.style.visibility = "visible";
+  toast.style.opacity = "1";
+
+  setTimeout(() => {
+    toast.style.opacity = "0";
+    toast.style.visibility = "hidden";
+  }, 3000);
+}
+
+// Modal
+const modal = document.getElementById("modalReserva");
+const closeBtn = document.querySelector(".close");
+const form = document.getElementById("formReserva");
+const destinoInput = document.getElementById("destinoSeleccionado");
+
+closeBtn.onclick = () => modal.style.display = "none";
+window.onclick = (e) => { if(e.target == modal) modal.style.display = "none"; }
+
+window.abrirModal = function(destino) {
+  destinoInput.value = destino;
+  modal.style.display = "block";
+}
+
+// Mostrar destinos
+onSnapshot(collection(db, "destinos"), (snapshot) => {
+  lista.innerHTML = "";
+
+  snapshot.forEach((doc) => {
+    const d = doc.data();
+
+    lista.innerHTML += `
+      <div class="card">
+        <img src="${obtenerImagenDestino(d.destino)}">
+        <h3>${d.destino}</h3>
+        <p><b>Fecha:</b> ${d.fecha}</p>
+        <p><b>Precio:</b> $${d.precio}</p>
+        <p><b>Días:</b> ${d.dias}</p>
+        <p><b>Salida:</b> ${d.salida}</p>
+        <p><b>Regreso:</b> ${d.regreso}</p>
+        <button onclick="abrirModal('${d.destino}')">Reservar</button>
+      </div>
+    `;
+  });
+});
+
+// Guardar reserva
+form.addEventListener("submit", async (e) => {
+  e.preventDefault();
+
+  const nombre = document.getElementById("nombre").value;
+  const correo = document.getElementById("correo").value;
+  const telefono = document.getElementById("telefono").value;
+  const destino = destinoInput.value;
+
+  try {
+    await addDoc(collection(db, "reservas"), {
+      destino,
+      nombre,
+      correo,
+      telefono,
+      fechaReserva: serverTimestamp()
+    });
+
+    mostrarToast(`✅ Reserva a ${destino} guardada`);
+    form.reset();
+    modal.style.display = "none";
+
+  } catch (error) {
+    console.error(error);
+    mostrarToast("❌ Error al guardar reserva", "#dc3545");
+  }
+});
+</script>
+
+</body>
+</html>
