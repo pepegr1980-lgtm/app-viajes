@@ -110,5 +110,21 @@ function renderReservas(){
  });
 }
 
-
   </script>
+
+// 🔥 CONECTAR BOTÓN
+document.addEventListener("DOMContentLoaded", function(){
+
+  const btn = document.getElementById("btnGuardar");
+
+  if(!btn){
+    console.error("❌ No existe el botón");
+    return;
+  }
+
+  btn.addEventListener("click", function(){
+    console.log("CLICK DETECTADO ✅");
+    guardarDestino();
+  });
+
+});
