@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Admin Empresa - Reservas</title>
+
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<style>
+body { font-family: Arial; background:#f4f6f9; padding:20px; }
+.dashboard { display:flex; gap:15px; margin-bottom:20px; }
+.cardDash { flex:1; background:white; padding:15px; border-radius:10px; text-align:center; }
+.filtros { display:flex; gap:10px; margin-bottom:20px; flex-wrap:wrap; }
+table { width:100%; background:white; border-collapse:collapse; margin-top:20px; }
+th,td { padding:10px; border:1px solid #ddd; text-align:center; }
+th { background:#007BFF; color:white; }
+.punto { background:#e3f2fd; padding:5px 10px; border-radius:6px; display:inline-block; }
+button { padding:5px 10px; border:none; cursor:pointer; border-radius:5px; margin:2px; }
+.btn-wsp { background:green; color:white; }
+.btn-del { background:red; color:white; }
+.btn-ok { background:#28a745; color:white; }
+.btn-exp { background:orange; color:white; margin-bottom:10px;}
+.btn-edit { background:#6c757d; color:white; }
+.btn-pagado { background:darkgreen; color:white; }
+.btn-abonos { background:purple; color:white; }
+.btn-destinosPagados { background:#28a745; color:white; margin-bottom:10px;}
+.abonos-container { background:#f0f0f0; padding:10px; border-radius:6px; margin-top:5px; }
+.abono-item { background:white; padding:5px; margin:2px 0; border-radius:4px; border:1px solid #ccc; }
+.modal { display: none; position: fixed; z-index: 1000; padding-top: 60px; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.4); }
+.modal-content { background-color: #fefefe; margin: auto; padding: 20px; border-radius: 10px; width: 80%; max-height: 80%; overflow-y: auto; }
+.close { color: #aaa; float: right; font-size: 28px; font-weight: bold; cursor:pointer; }
+.close:hover { color: black; }
+</style>
+</head>
+
+<body>
+<h1>Admin Empresarial - Reservas</h1>
+
+<div class="dashboard">
+  <div class="cardDash"><h3 id="total">0</h3><p>Total</p></div>
+  <div class="cardDash"><h3 id="pendientes">0</h3><p>Pendientes</p></div>
+  <div class="cardDash"><h3 id="confirmadas">0</h3><p>Confirmadas</p></div>
+</div>
+
+<div class="filtros">
+  <input type="text" id="fBuscar" placeholder="Buscar en todas las columnas...">
+  <button class="btn-exp" onclick="exportarExcel()">Exportar a Excel</button>
+  <button class="btn-destinosPagados" onclick="abrirModalPagados()">Destinos Pagados</button>
+</div>
+
+<table>
+<thead>
+<tr>
+<th>Destino</th>
+<th>Nombre</th>
+<th>Teléfono</th>
+<th>Personas</th>
+<th>Total</th>
+<th>Anticipo</th>
+<th>Restante</th>
+<th>Punto de reunión</th>
+<th>Fecha</th>
+<th>Estado</th>
+<th>Acciones</th>
+</tr>
+</thead>
+<tbody id="tabla"></tbody>
+</table>
+
+<div id="modalPagados" class="modal">
+  <div class="modal-content">
+    <span class="close" onclick="cerrarModalPagados()">&times;</span>
+    <h2>Destinos Pagados</h2>
+    <table id="tablaPagados" style="width:100%; border-collapse:collapse;">
+      <thead>
+        <tr style="background:#28a745; color:white;">
+          <th>Destino</th>
+          <th>Nombre</th>
+          <th>Teléfono</th>
+          <th>Personas</th>
+          <th>Total</th>
+          <th>Punto de reunión</th>
+          <th>Fecha</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getFirestore, collection, onSnapshot, deleteDoc, doc, updateDoc, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey:"AIzaSyC4FVokHFRbbTc4rBifNyt5bvOX2CuzkWw",
+  authDomain:"calificaciones-9f753.firebaseapp.com",
+  projectId:"calificaciones-9f753"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+let data = [];
+const tabla = document.getElementById("tabla");
+const fBuscar = document.getElementById("fBuscar");
+
+const total = document.getElementById("total");
+const pendientes = document.getElementById("pendientes");
+const confirmadas = document.getElementById("confirmadas");
+
+// Escucha reservas
+onSnapshot(collection(db,"reservas"), snap=>{
+  data=[];
+  snap.forEach(d=>data.push({id:d.id,...d.data()}));
+  render();
+});
+
+fBuscar.addEventListener("input", render);
+
+function render(){
+  tabla.innerHTML="";
+  let t=0,p=0,c=0;
+  const query = fBuscar.value.toLowerCase();
+
+  data.filter(r=>{
+    const fechaTxt = r.fechaReserva ? new Date(r.fechaReserva.seconds*1000).toLocaleString() : "";
+    return (
+      (r.destino || "").toLowerCase().includes(query) ||
+      (r.nombre || r.cliente || "").toLowerCase().includes(query) ||
+      (r.telefono || "").toLowerCase().includes(query) ||
+      (r.puntoReunion || "").toLowerCase().includes(query) ||
+      (r.estado || "").toLowerCase().includes(query) ||
+      fechaTxt.toLowerCase().includes(query)
+    );
+  }).forEach(r=>{
+    t++;
+    if((r.estado||"Pendiente")=="Pendiente") p++; else c++;
+    const fecha = r.fechaReserva ? new Date(r.fechaReserva.seconds*1000).toLocaleString() : "";
+    const numRestante = r.restante || 0;
+    const numAnticipo = r.anticipo || 0;
+    let bgColor = "";
+    if(numRestante === 0) bgColor = "#d4edda"; 
+    else if(numAnticipo > 0 && numRestante > 0) bgColor = "#f8d7da"; 
+    else if(numRestante > 0) bgColor = "#fff3cd"; 
+
+    tabla.innerHTML += `
+    <tr id="reserva-${r.id}" style="background:${bgColor}">
+      <td>${r.destino || ""}</td>
+      <td>${r.nombre || r.cliente || ""}</td>
+      <td>${r.telefono || ""}</td>
+      <td>${r.personas || "-"}</td>
+      <td>$${r.total || "-"}</td>
+      <td>$${r.anticipo || "-"}</td>
+      <td>$${r.restante || "-"}</td>
+      <td><span class="punto">${r.puntoReunion || "No definido"}</span></td>
+      <td>${fecha}</td>
+      <td>${r.estado || "Pendiente"}</td>
+      <td>
+        <button class="btn-ok" onclick="confirmar('${r.id}')">✔</button>
+        <button class="btn-wsp" onclick="wsp('${r.telefono}','${r.destino}','${r.puntoReunion}')">WSP</button>
+        <button onclick="generarPDF('${r.nombre || r.cliente}','${r.destino}','${r.telefono}','${r.puntoReunion}','${r.estado}')">PDF</button>
+        <button class="btn-edit" onclick="editarPunto('${r.id}','${r.puntoReunion || ""}')">Editar</button>
+        <button class="btn-abonos" onclick="toggleAbonos('${r.id}')">Abonos</button>
+        <button class="btn-pagado" onclick="marcarPagado('${r.id}')">Pagado</button>
+        <button class="btn-del" onclick="eliminar('${r.id}')">X</button>
+      </td>
+    </tr>`;
+  });
+
+  total.textContent=t;
+  pendientes.textContent=p;
+  confirmadas.textContent=c;
+}
+
+// Acciones
+window.eliminar = async id=>{
+  if(!confirm("¿Eliminar reserva?")) return;
+  await deleteDoc(doc(db,"reservas",id));
+  alert("Reserva eliminada");
+}
+
+window.confirmar = async id=> await updateDoc(doc(db,"reservas",id),{estado:"Confirmado"});
+window.marcarPagado = async id=> await updateDoc(doc(db,"reservas",id),{estado:"Pagado", restante:0});
+window.editarPunto = async (id, actual)=>{ const nuevo = prompt("Nuevo punto:", actual); if(nuevo) await updateDoc(doc(db,"reservas",id),{puntoReunion:nuevo}); }
+window.wsp = (tel,dest,punto)=>{ window.open(`https://wa.me/52${tel}?text=${encodeURIComponent(`Hola, tu viaje a ${dest}. Punto: ${punto || "Por definir"}`)}`); }
+window.generarPDF = (nombre,dest,telefono,punto,estado)=>{ const { jsPDF } = window.jspdf; const doc = new jsPDF(); doc.text("Nueva Aventura Monterrey",20,20); doc.text(`Nombre: ${nombre}`,20,40); doc.text(`Destino: ${dest}`,20,50); doc.text(`Teléfono: ${telefono}`,20,60); doc.text(`Punto: ${punto || "-"}`,20,70); doc.text(`Estado: ${estado || "Pendiente"}`,20,80); doc.save(`Reserva_${nombre}.pdf`); }
+window.exportarExcel = ()=>{ let csv="Destino,Nombre,Telefono,Personas,Total,Anticipo,Restante,Punto,Estado\n"; data.forEach(r=>{ csv+=`${r.destino},${r.nombre || r.cliente},${r.telefono || ""},${r.personas || "-"},${r.total || "-"},${r.anticipo || "-"},${r.restante || "-"},${r.puntoReunion || "-"},${r.estado || "Pendiente"}\n`; }); const blob=new Blob([csv],{type:"text/csv"}); const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="reservas.csv"; a.click(); }
+
+// Toggle abonos
+window.toggleAbonos = async (reservaId) => {
+  const filaAbonosExistente = document.getElementById(`abonos-${reservaId}`);
+  if(filaAbonosExistente){ filaAbonosExistente.remove(); return; }
+  const snap = await getDocs(collection(db,"abonos"));
+  const abonos = snap.docs.filter(d=>d.data().reservaId === reservaId);
+  let html = `<td colspan="11"><div class='abonos-container'>`;
+  if(abonos.length === 0) html += "No hay abonos";
+  else abonos.forEach(a=>{ const d = a.data(); const fecha = d.fecha ? new Date(d.fecha.seconds*1000).toLocaleString() : ""; html += `<div class='abono-item'>Monto: $${d.monto || "-"} - Fecha: ${fecha}</div>`; });
+  html += `</div></td>`;
+  const fila = document.createElement("tr"); fila.id = `abonos-${reservaId}`; fila.innerHTML = html;
+  const filaReserva = document.getElementById(`reserva-${reservaId}`);
+  filaReserva.parentNode.insertBefore(fila, filaReserva.nextSibling);
+};
+
+// Modal Destinos Pagados
+const modalPagados = document.getElementById("modalPagados");
+const tablaPagados = document.getElementById("tablaPagados").querySelector("tbody");
+window.abrirModalPagados = async ()=>{
+  tablaPagados.innerHTML="";
+  const snap = await getDocs(collection(db,"cliente-listo"));
+  snap.forEach(d=>{
+    const r = d.data();
+    const fecha = r.fechaReserva ? new Date(r.fechaReserva.seconds*1000).toLocaleString() : "";
+    tablaPagados.innerHTML += `<tr>
+      <td>${r.destino}</td>
+      <td>${r.nombre || r.cliente}</td>
+      <td>${r.telefono || ""}</td>
+      <td>${r.personas || "-"}</td>
+      <td>$${r.total || "-"}</td>
+      <td>${r.puntoReunion || "-"}</td>
+      <td>${fecha}</td>
+    </tr>`;
+  });
+  modalPagados.style.display="block";
+};
+window.cerrarModalPagados = ()=>{ modalPagados.style.display="none"; };
+window.onclick = function(event){ if(event.target==modalPagados) modalPagados.style.display="none"; };
+</script>
+
+</body>
+</html>
